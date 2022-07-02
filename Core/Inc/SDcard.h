@@ -2,7 +2,7 @@
  * SDcard.h
  *
  *  Created on: Jun 15, 2022
- *      Author: Vitor Borges
+ *      Author: Vitor Borges e Lucas Assis
  */
 
 #ifndef SRC_SDCARD_H_
