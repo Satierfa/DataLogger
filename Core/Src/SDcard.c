@@ -2,7 +2,7 @@
  * SDcard.c
  *
  *  Created on: Jun 15, 2022
- *      Author: Vitor Borges
+ *      Author: Vitor Borges e Lucas Assis
  */
 #include <stdio.h>
 #include "FreeRTOS.h"
