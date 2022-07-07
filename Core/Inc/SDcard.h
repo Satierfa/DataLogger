@@ -2,7 +2,7 @@
  * SDcard.h
  *
  *  Created on: Jun 15, 2022
- *      Author: Vitor Borges e Lucas Assis
+ *      Author: Vitor Borges
  */
 
 #ifndef SRC_SDCARD_H_
@@ -66,8 +66,8 @@ QueueHandle_t SDcard_get_queue_handle(void);
 
 
 #define USB_PRINT(data) do { \
-		xSemaphoreTake(print_smpr_handle, 100); \
-		CDC_Transmit_FS((uint8_t*)data, strlen(data)); \
-		xSemaphoreGive(print_smpr_handle); \
+		if(xSemaphoreTake(print_smpr_handle, 1)) \
+			CDC_Transmit_FS((uint8_t*)data, strlen(data)); \
+			xSemaphoreGive(print_smpr_handle); \
     } while(0)
 #endif /* SRC_SDCARD_H_ */

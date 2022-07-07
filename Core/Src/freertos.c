@@ -30,9 +30,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-static struct {
-	uint8_t data_type;
-} task_init;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -60,7 +58,7 @@ static const data_type_t three_ap[] = {G_CTRL_TRACAO_RX, G_CTRL_VEL_RX, G_CTRL_P
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
-  .stack_size = 128 * 4,
+  .stack_size = 128 * 8,
   .priority = (osPriority_t) osPriorityNormal,
 };
 
@@ -127,9 +125,14 @@ void StartDefaultTask(void *argument)
   /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN StartDefaultTask */
-  SDcard_start();
+
+  vTaskDelay(3000);
+  if(!SDcard_start()){
+	  USB_PRINT("error starting sd card\n");
+	  return;
+  }
   if(!start_send_data_tasks()){
-	  USB_PRINT("error starting send data tasks");
+	  USB_PRINT("error starting send data tasks\n");
   }
 
 
@@ -149,6 +152,8 @@ void send_data(void* arg){
 	uint16_t period_ms = 0;
 	uint8_t array_size = 0;
 	data_type_t type = 0;
+	char buf [35];
+	int n = 0;
 
 	if(settings_in_bits>>31){
 		array_size = 3;
@@ -158,21 +163,25 @@ void send_data(void* arg){
 
 	period_ms = (settings_in_bits<<1)>>16;
 	type = (settings_in_bits<<16)>>16;
-//	for(;;){vTaskDelay(1);}
+	srand(type);
 	TickType_t LastWakeTime = xTaskGetTickCount();
 	for(;;){
+		if(n == 3) break;
 		vTaskDelayUntil(&LastWakeTime, pdMS_TO_TICKS(period_ms));
 		SD_data_t data = {
-			.value = {32,44,63},
+			.value = {rand()%100,rand()%100,rand()%100},
 			.data_type = type,
 			.timestamp = LastWakeTime,
 			.array_size = array_size,
 		};
 
-		if(xQueueSend(SDcard_queue, (void*)&data, pdMS_TO_TICKS(100)) != pdTRUE){
-			USB_PRINT("fail send data to queue\n");
+		if(xQueueSend(SDcard_queue, (void*)&data, pdMS_TO_TICKS(period_ms)/2) != pdTRUE){
+			sprintf(buf, "fail send data to queue - %d\n", data.data_type);
+			USB_PRINT(buf);
 		}
+		n++;
 	}
+	vTaskDelete(NULL);
 }
 
 
@@ -181,64 +190,64 @@ static bool start_send_data_tasks(void){
 	uint32_t settings_in_bits = 0UL;
 
 	settings_in_bits = 0<<31; //1 element array
-	settings_in_bits += 1000<<15; // time in ms
+	settings_in_bits += 1<<15; // time in ms
 	for(int i = 0; i < sizeof(one_1)/sizeof(one_1[0]); i++){
 	  settings_in_bits += one_1[i]; //type of data
 	  ret = xTaskCreate(send_data, "send_data", 128*2, (void*)settings_in_bits, 25, NULL);
-	  if(!ret) return false;
+	  if(ret != pdPASS) return false;
 	  settings_in_bits = (settings_in_bits>>15)<<15;
 	}
 
 	settings_in_bits = 0<<31; //1 element array
-	settings_in_bits += 10000<<15; // time in ms
+	settings_in_bits += 10<<15; // time in ms
 	for(int i = 0; i < sizeof(one_10)/sizeof(one_10[0]); i++){
 	  settings_in_bits += one_10[i]; //type of data
 	  ret = xTaskCreate(send_data, "send_data", 128*2, (void*)settings_in_bits, 25, NULL);
-	  if(!ret) return false;
+	  if(ret != pdPASS) return false;
 	  settings_in_bits = (settings_in_bits>>15)<<15;
 	}
 
 	settings_in_bits = 0<<31; //1 element array
-	settings_in_bits += 10000<<15; // time in ms
+	settings_in_bits += 100<<15; // time in ms
 	for(int i = 0; i < sizeof(one_100)/sizeof(one_100[0]); i++){
 	  settings_in_bits += one_100[i]; //type of data
 	  ret = xTaskCreate(send_data, "send_data", 128*2, (void*)settings_in_bits, 25, NULL);
-	  if(!ret) return false;
+	  if(ret != pdPASS) return false;
 	  settings_in_bits = (settings_in_bits>>15)<<15;
 	}
 
 	settings_in_bits = 1<<31; //3 element array
-	settings_in_bits += 10000<<15; // time in ms
+	settings_in_bits += 1<<15; // time in ms
 	for(int i = 0; i < sizeof(three_1)/sizeof(three_1[0]); i++){
 	  settings_in_bits += three_1[i]; //type of data
 	  ret = xTaskCreate(send_data, "send_data", 128*2, (void*)settings_in_bits, 25, NULL);
-	  if(!ret) return false;
+	  if(ret != pdPASS) return false;
 	  settings_in_bits = (settings_in_bits>>15)<<15;
 	}
 	settings_in_bits = 1<<31; //3 element array
-	settings_in_bits += 10000<<15; // time in ms
+	settings_in_bits += 10<<15; // time in ms
 	for(int i = 0; i < sizeof(three_10)/sizeof(three_10[0]); i++){
 	  settings_in_bits += three_10[i]; //type of data
 	  ret = xTaskCreate(send_data, "send_data", 128*2, (void*)settings_in_bits, 25, NULL);
-	  if(!ret) return false;
+	  if(ret != pdPASS) return false;
 	  settings_in_bits = (settings_in_bits>>15)<<15;
 	}
 
 	settings_in_bits = 1<<31; //3 element array
-	settings_in_bits += 10000<<15; // time in ms
+	settings_in_bits += 100<<15; // time in ms
 	for(int i = 0; i < sizeof(three_100)/sizeof(three_100[0]); i++){
 	  settings_in_bits += three_100[i]; //type of data
 	  ret = xTaskCreate(send_data, "send_data", 128*2, (void*)settings_in_bits, 25, NULL);
-	  if(!ret) return false;
+	  if(ret != pdPASS) return false;
 	  settings_in_bits = (settings_in_bits>>15)<<15;
 	}
 
 	settings_in_bits = 1<<31; //3 element array
-	settings_in_bits += 10000<<15; // time in ms
+	settings_in_bits += rand()%1000<<15; // time in ms
 	for(int i = 0; i < sizeof(three_ap)/sizeof(three_ap[0]); i++){
 	  settings_in_bits += three_ap[i]; //type of data
 	  ret = xTaskCreate(send_data, "send_data", 128*2, (void*)settings_in_bits, 25, NULL);
-	  if(!ret) return false;
+	  if(ret != pdPASS) return false;
 	  settings_in_bits = (settings_in_bits>>15)<<15;
 	}
 	return true;

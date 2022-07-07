@@ -2,7 +2,7 @@
  * SDcard.c
  *
  *  Created on: Jun 15, 2022
- *      Author: Vitor Borges e Lucas Assis
+ *      Author: Vitor Borges
  */
 #include <stdio.h>
 #include "FreeRTOS.h"
@@ -107,9 +107,9 @@ static bool reset_files(void){
 
 		er = f_stat(path, NULL);
 		if(er != FR_OK){
+			if(er == FR_NO_FILE) continue;
 			sprintf(buffer, "error: %d\n", er);
 			USB_PRINT(buffer);
-			if(er == FR_NO_FILE) continue;
 			return false;
 		}
 
@@ -120,6 +120,7 @@ static bool reset_files(void){
 			return false;
 		}
 	}
+	return true;
 }
 
 static void SDcard_task(void* arg){
@@ -142,6 +143,7 @@ static void SDcard_task(void* arg){
 		er = f_stat(path, NULL);
 		if(er == FR_NO_FILE){
 			f_open(&fil, path, FA_CREATE_ALWAYS | FA_WRITE);
+			f_printf(&fil, "%s\n", path);
 			if(data.array_size == 1){
 				f_puts("timestamp,value\n", &fil);
 			}
@@ -173,25 +175,32 @@ static void SDcard_task(void* arg){
 			continue;
 		}
 
+
 		f_lseek(&fil, 0);
 		while(f_gets(buffer, sizeof(buffer), &fil))
-				{
-					USB_PRINT(buffer);
-					memset(buffer,0,sizeof(buffer));
-				}
-		f_close(&fil);
+		{
+			USB_PRINT(buffer);
+			memset(buffer,0,sizeof(buffer));
+		}
 		USB_PRINT("\n");
+		f_close(&fil);
+
 	}
 }
 
 int SDcard_start(void){
-	BaseType_t ret = pdTRUE;
 	print_smpr_handle = xSemaphoreCreateBinary();
-	SDcard_queue_handle = xQueueCreate(10, sizeof(SD_data_t));
-	ret &= !f_mount(&fs, "", 0);
-	ret &= reset_files();
-	ret &= xTaskCreate(SDcard_task, "SDcard_task", 128*4, NULL, 25, NULL);
-	return ret;
+	SDcard_queue_handle = xQueueCreate(20, sizeof(SD_data_t));
+	if(f_mount(&fs, "", 0) != FR_OK){
+		USB_PRINT("fail mount sd card\n");
+		return false;
+	}
+	if(reset_files() != true){
+		USB_PRINT("fail reseting files\n");
+		return false;
+	}
+	if(xTaskCreate(SDcard_task, "SDcard_task", 128*5, NULL, 26, NULL) != pdPASS) return false;
+	return true;
 }
 
 
